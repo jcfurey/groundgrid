@@ -60,7 +60,7 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
     sensor_msgs::msg::PointCloud2::SharedPtr filtered_cloud(new sensor_msgs::msg::PointCloud2);
     filtered_cloud->data.resize(cloud->data.size());
     filtered_cloud->fields = cloud->fields;
-    filtered_cloud->height = cloud->height;
+    filtered_cloud->height = 1;
     filtered_cloud->is_bigendian = cloud->is_bigendian;
     filtered_cloud->point_step = cloud->point_step;
     filtered_cloud->row_step = cloud->row_step;
