@@ -233,6 +233,7 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
 
     // resize cloud to correct size
     filtered_cloud->data.resize(filtered_cloud->width * filtered_cloud->point_step);
+    filtered_cloud->row_step = filtered_cloud->width * filtered_cloud->point_step;
 
     end = std::chrono::steady_clock::now();
     elapsed_seconds = end-start;

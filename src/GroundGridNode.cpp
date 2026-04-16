@@ -198,6 +198,8 @@ class GroundGridNode : public rclcpp::Node {
         param_eval.description = "Evaluation mode: wait for clouds to be processed";
         eval_ = declare_parameter<bool>("groundgrid/evaluation", false, param_eval);
 
+        base_frame_ = declare_parameter<std::string>("groundgrid/base_frame", "base_footprint");
+
         ground_segmentation_.init(groundgrid_->mDimension, groundgrid_->mResolution, config_gg, visualize);
 
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
@@ -324,8 +326,8 @@ class GroundGridNode : public rclcpp::Node {
             return;
 
         try{
-            tf_buffer_.canTransform("base_link", "odom", cloud_msg->header.stamp, rclcpp::Duration(1,std::nano::den/10));
-            mapToBaseTransform = tf_buffer_.lookupTransform("odom", "base_link", cloud_msg->header.stamp);
+            tf_buffer_.canTransform(base_frame_, "odom", cloud_msg->header.stamp, rclcpp::Duration(1,std::nano::den/10));
+            mapToBaseTransform = tf_buffer_.lookupTransform("odom", base_frame_, cloud_msg->header.stamp);
             tf_buffer_.canTransform(cloud_msg->header.frame_id, "odom", cloud_msg->header.stamp, rclcpp::Duration(0,std::nano::den/10));
             cloudOriginTransform = tf_buffer_.lookupTransform("odom", cloud_msg->header.frame_id, cloud_msg->header.stamp);
         }
@@ -486,6 +488,8 @@ class GroundGridNode : public rclcpp::Node {
     tf2_ros::Buffer tf_buffer_;
     tf2_ros::TransformListener tf_listener_;
 
+
+    std::string base_frame_;
 
     float variance_factor_ = 0.35f;
     float normals_factor_ = 0.01f;
