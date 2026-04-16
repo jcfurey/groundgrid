@@ -327,17 +327,16 @@ class GroundGridNode : public rclcpp::Node {
             tf_buffer_.canTransform("base_link", "odom", cloud_msg->header.stamp, rclcpp::Duration(1,std::nano::den/10));
             mapToBaseTransform = tf_buffer_.lookupTransform("odom", "base_link", cloud_msg->header.stamp);
             tf_buffer_.canTransform(cloud_msg->header.frame_id, "odom", cloud_msg->header.stamp, rclcpp::Duration(0,std::nano::den/10));
-            cloudOriginTransform = tf_buffer_.lookupTransform("odom", "velodyne", cloud_msg->header.stamp);
+            cloudOriginTransform = tf_buffer_.lookupTransform("odom", cloud_msg->header.frame_id, cloud_msg->header.stamp);
         }
         catch (tf2::TransformException &ex) {
-            RCLCPP_WARN(get_logger(), "Could not get transform for cloud %s",ex.what());
+            RCLCPP_WARN(get_logger(), "Could not get transform for cloud \"%s\" %s", cloud_msg->header.frame_id.c_str(), ex.what());
             return;
         }
 
 
         geometry_msgs::msg::PointStamped origin;
         origin.header = cloud_msg->header;
-        origin.header.frame_id = "velodyne";
         origin.point.x = 0.0f;
         origin.point.y = 0.0f;
         origin.point.z = 0.0f;        
