@@ -92,8 +92,6 @@ void GroundGrid::init(const nav_msgs::msg::Odometry::ConstSharedPtr &inOdom)
 
 std::shared_ptr<grid_map::GridMap> GroundGrid::update(const nav_msgs::msg::Odometry::ConstSharedPtr &inOdom)
 {
-    static unsigned int seq = 0;
-
     if(!mMap_ptr){
         init(inOdom);
         return mMap_ptr;

@@ -81,14 +81,7 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
 
     map.add("variance", 0.0);
     static const grid_map::Matrix& ggv = map["variance"];
-    static const grid_map::Matrix& ggp = map["groundpatch"];
-    static grid_map::Matrix& gmx = map["maxGroundHeight"];
-    static grid_map::Matrix& gmi = map["minGroundHeight"];
-    static grid_map::Matrix& gmg = map["groundCandidates"];
     static grid_map::Matrix& gpl = map["points"];
-    static grid_map::Matrix& gmd = map["planeDist"];
-    static grid_map::Matrix& gm2 = map["m2"];
-    static grid_map::Matrix& gmm = map["meanVariance"];
     static grid_map::Matrix& ggl = map["ground"];
     const auto& size = map.getSize();
     const size_t threadcount = config_.max_threads;
@@ -113,9 +106,9 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
     std::vector<std::thread> threads;
 
     for(size_t i=0; i<threadcount; ++i){
-        const size_t start = std::floor((i*cloud->width)/threadcount);
-        const size_t end = std::ceil(((i+1)*cloud->width)/threadcount);
-        threads.push_back(std::thread(&GroundSegmentation::insert_cloud, this, cloud, start, end, std::cref(cloudOrigin), std::ref(point_index_list[i]), std::ref(ignored_list[i]),
+        const size_t chunk_start = std::floor((i*cloud->width)/threadcount);
+        const size_t chunk_end = std::ceil(((i+1)*cloud->width)/threadcount);
+        threads.push_back(std::thread(&GroundSegmentation::insert_cloud, this, cloud, chunk_start, chunk_end, std::cref(cloudOrigin), std::ref(point_index_list[i]), std::ref(ignored_list[i]),
                                       std::ref(outliers_list[i]), std::ref(map)));
     }
 
@@ -268,8 +261,6 @@ void GroundSegmentation::insert_cloud(const sensor_msgs::msg::PointCloud2::Const
     const auto& point_step = cloud->point_step;
     const auto& y_offset = cloud->fields[1].offset;
     const auto& z_offset = cloud->fields[2].offset;
-    const auto& intensity_offset = cloud->fields[3].offset;
-    const auto& ring_offset = cloud->fields[4].offset;
 
     for(size_t i = start; i < end; ++i)
     {

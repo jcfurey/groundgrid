@@ -237,7 +237,7 @@ class GroundGridNode : public rclcpp::Node {
         RCLCPP_DEBUG_STREAM(get_logger(), "grid map update took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms");
     }
 
-    virtual void next_cloud_trigger(const std_msgs::msg::Empty::ConstSharedPtr& msg){
+    virtual void next_cloud_trigger(const std_msgs::msg::Empty::ConstSharedPtr& /*msg*/){
         ++current_cloud;
     }
     
@@ -369,7 +369,6 @@ class GroundGridNode : public rclcpp::Node {
         RCLCPP_DEBUG_STREAM(get_logger(), "cloud transformation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms");
 
         auto start2 = std::chrono::steady_clock::now();
-        const auto& mapSize = map_ptr_->getSize();
 	      std::clock_t c_clock = std::clock();
         sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg_out;
         PCLPoint origin_pclPoint;
@@ -396,8 +395,6 @@ class GroundGridNode : public rclcpp::Node {
             tf2::doTransform(*cloud_msg_out, *cloud_msg_out, revtransformStamped);
             filtered_cloud_pub_->publish(*cloud_msg_out);
         }
-
-        auto& map = *map_ptr_;
 
         // ros2 removed the header sequence field, so we have to count manually.
         static size_t seq = 0;
@@ -450,7 +447,7 @@ class GroundGridNode : public rclcpp::Node {
 
     
    protected:
-    void publish_grid_map_layer(const image_transport::Publisher& pub, const std::string& layer_name, const int seq = 0, const rclcpp::Time& stamp = rclcpp::Clock(RCL_ROS_TIME).now()){
+    void publish_grid_map_layer(const image_transport::Publisher& pub, const std::string& layer_name, const int /*seq*/ = 0, const rclcpp::Time& stamp = rclcpp::Clock(RCL_ROS_TIME).now()){
         cv::Mat img, normalized_img, color_img, mask;
         if(pub.getNumSubscribers()){
             auto& map = *map_ptr_;
@@ -541,7 +538,6 @@ sensor_msgs::msg::PointCloud2::SharedPtr readNextCloud(const groundgrid::DATASET
                                                        groundgrid::LiDAR::VELODYNE_64,
                                                        const size_t rings = 64){
     using namespace groundgrid;
-    auto start = std::chrono::steady_clock::now();
     sensor_msgs::msg::PointCloud2::SharedPtr cloud(new sensor_msgs::msg::PointCloud2);
     sensor_msgs::msg::PointField x, y, z, intensity, ring;
     x.name = "x";
@@ -649,9 +645,6 @@ sensor_msgs::msg::PointCloud2::SharedPtr readNextCloud(const groundgrid::DATASET
     		cloud->width++;
     }
     input.close();
-    auto end = std::chrono::steady_clock::now();
-    std::chrono::duration<double> elapsed_seconds = end-start;
-    const int milliseconds = elapsed_seconds.count() * 1000;
     return cloud;
 }
 
@@ -743,7 +736,7 @@ void processPoses(const groundgrid::DATASET dataset, const std::string& poses_fi
 
         // for KITTI360 we have to fill the poses until the first frame
         if(dataset == KITTI_360 && poses_out.empty())
-            for(int i=0; i<frame_id; ++i)
+            for(size_t i=0; i<frame_id; ++i)
                 poses_out.push_back(pose_msg);
         poses_out.push_back(pose_msg);
     }
@@ -794,7 +787,7 @@ std::vector<geometry_msgs::msg::Pose> matchCloudPoses(const std::vector<std::str
     for(const auto& stamp : ouster_stamps){
         size_t stamp_long = std::stol(stamp);
         size_t diff_to_last = stamp_long - last_stamp;
-        while(pose_idx < poses_stamps.size()-1 && stamp_long > std::stol(poses_stamps[pose_idx]))
+        while(pose_idx < poses_stamps.size()-1 && stamp_long > static_cast<size_t>(std::stol(poses_stamps[pose_idx])))
             ++pose_idx;
         size_t diff_to_next = std::stol(poses_stamps[pose_idx]) - stamp_long;
 
@@ -962,13 +955,9 @@ int main(int argc, char * argv[])
       static nav_msgs::msg::Odometry lastOdom;
       odom.header.stamp = current_time;
       odom.header.frame_id = "odom";
-      const double x_last = lastOdom.pose.pose.position.x;
-      const double y_last = lastOdom.pose.pose.position.y;
       odom.pose.pose = poses[i];
       lastOdom = odom;
       geometry_msgs::msg::TransformStamped t, t_map_odom;
-      const double odomTest_x = odom.pose.pose.position.x;
-      const double odomTest_y = odom.pose.pose.position.y;
       t_map_odom.header.stamp = current_time;
       t_map_odom.header.frame_id = "map";
       t_map_odom.child_frame_id = "odom";
@@ -986,24 +975,24 @@ int main(int argc, char * argv[])
       node->odom_callback(std::make_shared<nav_msgs::msg::Odometry>(odom));
 
 
-      std::ostringstream ss;
+      std::ostringstream next_cloud_ss;
       sensor_msgs::msg::PointCloud2::SharedPtr cloud_msg;
       cloud_msg_future.wait();
       cloud_msg = cloud_msg_future.get();
       cloud_msg->header.stamp = current_time;
       cloud_msg->header.frame_id = "velodyne";
 
-      // asynchronosly read the next cloud 
+      // asynchronosly read the next cloud
       if(i+1 < poses.size()){
         if(dataset == KITTI)
-              ss << path << std::setw(6) << std::setfill('0') << i+1 << ".bin";
+              next_cloud_ss << path << std::setw(6) << std::setfill('0') << i+1 << ".bin";
         else if(dataset == KITTI_360)
-              ss << path << std::setw(10) << std::setfill('0') << i+1 << ".bin";
+              next_cloud_ss << path << std::setw(10) << std::setfill('0') << i+1 << ".bin";
         else if(dataset == MULRAN || dataset == HELIPR)
-             ss << path << "/" << ouster_stamps[i+1] << ".bin";
+             next_cloud_ss << path << "/" << ouster_stamps[i+1] << ".bin";
         else if(dataset == PCD)
-             ss << path << "/" << ouster_stamps[i+1] << ".pcd";
-        cloud_msg_future = std::async(std::launch::async, &readNextCloud, dataset, ss.str(), lidar, 128);
+             next_cloud_ss << path << "/" << ouster_stamps[i+1] << ".pcd";
+        cloud_msg_future = std::async(std::launch::async, &readNextCloud, dataset, next_cloud_ss.str(), lidar, 128);
       }
 
       // execute cloud callback
@@ -1017,7 +1006,7 @@ int main(int argc, char * argv[])
       if(i == 0)
           continue;
       // wait for the evaluation results
-      while(node->current_cloud <= i && node->eval_) // wait until the sent clouds are processed
+      while(node->current_cloud <= static_cast<long>(i) && node->eval_) // wait until the sent clouds are processed
           executor->spin_some();
 
       odom.pose.pose = poses[i-1];
@@ -1037,8 +1026,8 @@ int main(int argc, char * argv[])
       }
   }
 
-  // Wait for the processing of the last cloud 
-  while(node->current_cloud < poses.size() && node->eval_)
+  // Wait for the processing of the last cloud
+  while(node->current_cloud < static_cast<long>(poses.size()) && node->eval_)
       executor->spin_some();
 
   std::cout << "\x1b[1F \x1b[2K\033[1;32mCloud " << poses.size() << " of " << poses.size();
