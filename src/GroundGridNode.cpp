@@ -126,7 +126,7 @@ class GroundGridNode : public rclcpp::Node {
             sequence.insert(sequence.begin(), '0');
         auto param_sensor = rcl_interfaces::msg::ParameterDescriptor{};
         param_sensor.description = "Selected sensor of the dataset";
-        sensor = declare_parameter<std::string>("groundgrid/sensor", "velodyne", param_seq);
+        sensor = declare_parameter<std::string>("groundgrid/sensor", "velodyne", param_sensor);
         auto param_poses = rcl_interfaces::msg::ParameterDescriptor{};
         param_poses.description = "Odometry poses file";
         poses_path = declare_parameter<std::string>("groundgrid/poses_file", "poses.txt", param_poses);
@@ -278,7 +278,7 @@ class GroundGridNode : public rclcpp::Node {
             intensity_shift_ = 0.0f;
         }
         else if(lidar == VELODYNE_32){ // HeLIPR Velo16
-            RCLCPP_INFO(get_logger(), "Using HeLIPR Aeva parameters");
+            RCLCPP_INFO(get_logger(), "Using HeLIPR Velodyne parameters");
             variance_factor_ = 0.35f;
             normals_factor_ = 0.1f;
             intensity_factor_ = 64.0f;
