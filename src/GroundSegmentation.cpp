@@ -132,6 +132,16 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
 
     start = std::chrono::steady_clock::now();
 
+    // Compute per-cell variance once before fanning out — detect_ground_patches
+    // used to recompute ggv = m2/points from each of the 4 worker threads,
+    // which races on the variance matrix even though the result is deterministic.
+    {
+        const grid_map::Matrix& gm2 = map["m2"];
+        const grid_map::Matrix& gpl = map["points"];
+        grid_map::Matrix& ggv = map["variance"];
+        ggv = gm2.array().cwiseQuotient(gpl.array() + std::numeric_limits<float>::min());
+    }
+
     // Divide the grid map into four section for threaded calculations
     threads.clear();
     for(unsigned short section=0; section<4; ++section)
@@ -366,11 +376,6 @@ void GroundSegmentation::detect_ground_patches(grid_map::GridMap &map, unsigned 
     const grid_map::Matrix& gcl = map["groundCandidates"];
     const auto& size = map.getSize();
     const float resolution = map.getResolution();
-    const grid_map::Matrix& gm2 = map["m2"];
-    const grid_map::Matrix& gpl = map["points"];
-    grid_map::Matrix& ggv = map["variance"];
-    // calculate variance
-    ggv = gm2.array().cwiseQuotient(gpl.array()+std::numeric_limits<float>::min());
 
     int cols_start = 2 + section%2 * (gcl.cols()/2-2);
     int rows_start = section>=2 ? gcl.rows()/2 : 2;
