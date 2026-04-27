@@ -59,8 +59,12 @@ void GroundGrid::init(const nav_msgs::msg::Odometry::ConstSharedPtr &inOdom)
 {
     geometry_msgs::msg::PoseWithCovarianceStamped odomPose, utmPose;
 
-    mMap_ptr = std::make_shared<grid_map::GridMap, const std::vector< std::string >>({"points", "ground", 
-        "groundpatch", "minGroundHeight", "maxGroundHeight"}); 
+    // Allocate every layer GroundSegmentation will touch up front so the per-cloud
+    // hot path can just setZero/setConstant existing matrices instead of paying the
+    // grid_map::add() allocation tax (~3 MB of per-layer Eigen storage) at 10 Hz.
+    mMap_ptr = std::make_shared<grid_map::GridMap, const std::vector<std::string>>(
+        {"points", "ground", "groundpatch", "minGroundHeight", "maxGroundHeight",
+         "groundCandidates", "planeDist", "m2", "meanVariance", "pointsRaw", "variance"});
     grid_map::GridMap& map = *mMap_ptr;
     map.setFrameId("odom");
     map.setGeometry(grid_map::Length(mDimension, mDimension), mResolution, grid_map::Position(inOdom->pose.pose.position.x,inOdom->pose.pose.position.y));

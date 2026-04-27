@@ -67,19 +67,16 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
     filtered_cloud->is_dense = true;
     filtered_cloud->width = 0; // empty for now
 
-    map.add("groundCandidates", 0.0);
-    map.add("planeDist", 0.0);
-    map.add("m2", 0.0);
-    map.add("meanVariance", 0.0);
-    // raw point count layer for the evaluation
-    map.add("pointsRaw", 0.0);
-
+    // Layers are created once in GroundGrid::init(); here we just reset state.
     map["groundCandidates"].setZero();
+    map["planeDist"].setZero();
+    map["m2"].setZero();
+    map["meanVariance"].setZero();
+    map["pointsRaw"].setZero();
     map["points"].setZero();
+    map["variance"].setZero();
     map["minGroundHeight"].setConstant(std::numeric_limits<float>::max());
     map["maxGroundHeight"].setConstant(std::numeric_limits<float>::min());
-
-    map.add("variance", 0.0);
     static const grid_map::Matrix& ggv = map["variance"];
     static grid_map::Matrix& gpl = map["points"];
     static grid_map::Matrix& ggl = map["ground"];
