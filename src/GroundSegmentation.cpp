@@ -32,6 +32,31 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace groundgrid;
 
+namespace {
+// Look up x/y/z/intensity offsets by field name. Several driver versions
+// (Ouster, OAK, Velodyne) lay PointCloud2 fields out in different orders
+// — relying on cloud->fields[1]/[2]/[3] reads garbage if anything but
+// x,y,z,intensity comes in the first four slots. Defaults match the
+// canonical xyzi layout in case the cloud somehow lacks named fields.
+struct FieldOffsets {
+    uint32_t x = 0;
+    uint32_t y = 4;
+    uint32_t z = 8;
+    uint32_t intensity = 12;
+};
+
+FieldOffsets find_field_offsets(const sensor_msgs::msg::PointCloud2& cloud) {
+    FieldOffsets off;
+    for (const auto& f : cloud.fields) {
+        if      (f.name == "x")         off.x         = f.offset;
+        else if (f.name == "y")         off.y         = f.offset;
+        else if (f.name == "z")         off.z         = f.offset;
+        else if (f.name == "intensity") off.intensity = f.offset;
+    }
+    return off;
+}
+}
+
 
 void GroundSegmentation::init(const size_t dimension, const float& resolution, const GroundGrid_Config& config, bool visualize_segmentation){
     config_ = config;
@@ -187,9 +212,10 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
     const unsigned char* data = cloud->data.data();
     unsigned char* filtered_data = filtered_cloud->data.data();
     const auto& point_step = cloud->point_step;
-    const auto& y_offset = cloud->fields[1].offset;
-    const auto& z_offset = cloud->fields[2].offset;
-    const auto& intensity_offset = cloud->fields[3].offset;
+    const FieldOffsets offsets = find_field_offsets(*cloud);
+    const auto& y_offset = offsets.y;
+    const auto& z_offset = offsets.z;
+    const auto& intensity_offset = offsets.intensity;
 
     for(const std::pair<size_t, grid_map::Index>& entry : point_index)
     {
@@ -269,8 +295,9 @@ void GroundSegmentation::insert_cloud(const sensor_msgs::msg::PointCloud2::Const
 
     const unsigned char* data = cloud->data.data();
     const auto& point_step = cloud->point_step;
-    const auto& y_offset = cloud->fields[1].offset;
-    const auto& z_offset = cloud->fields[2].offset;
+    const FieldOffsets offsets = find_field_offsets(*cloud);
+    const auto& y_offset = offsets.y;
+    const auto& z_offset = offsets.z;
 
     for(size_t i = start; i < end; ++i)
     {
