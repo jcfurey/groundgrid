@@ -241,61 +241,7 @@ class GroundGridNode : public rclcpp::Node {
             RCLCPP_ERROR(get_logger(), "Failed to set transform!");
     }
 
-    void setLiDAR(const LiDAR& lidar){
-        if(lidar == VELODYNE_64){ //KITTI
-            RCLCPP_INFO(get_logger(), "Using KITTI parameters");
-            variance_factor_ = 0.35f;
-            normals_factor_ = 0.09f;
-            intensity_factor_ = 0.375f;
-            intensity_shift_ = 0.075f;
-        }
-        else if(lidar == OUSTER_64){ //MulRan
-            RCLCPP_INFO(get_logger(), "Using MulRan parameters");
-            variance_factor_ = 0.35f;
-            normals_factor_ = 0.1f;
-            intensity_factor_ = 1.0f;
-            intensity_shift_ = 0.075f;
-        }
-        else if(lidar == OUSTER_128){ // HeLIPR Ouster 128
-            RCLCPP_INFO(get_logger(), "Using HeLIPR Ouster parameters");
-            variance_factor_ = 0.35f;
-            normals_factor_ = 0.1f;
-            intensity_factor_ = 200.0f;
-            intensity_shift_ = 0.0f;
-        }
-        else if(lidar == AVIA){ // HeLIPR Avia
-            RCLCPP_INFO(get_logger(), "Using HeLIPR Avia parameters");
-            variance_factor_ = 0.35f;
-            normals_factor_ = 0.09f;
-            intensity_factor_ = 50.0f;
-            intensity_shift_ = 0.0f;
-        }
-        else if(lidar == AEVA){ // HeLIPR Aeva
-            RCLCPP_INFO(get_logger(), "Using HeLIPR Aeva parameters");
-            variance_factor_ = 0.35f;
-            normals_factor_ = 0.1f;
-            intensity_factor_ = 1.0f;
-            intensity_shift_ = 0.0f;
-        }
-        else if(lidar == VELODYNE_32){ // HeLIPR Velo16
-            RCLCPP_INFO(get_logger(), "Using HeLIPR Velodyne parameters");
-            variance_factor_ = 0.35f;
-            normals_factor_ = 0.1f;
-            intensity_factor_ = 64.0f;
-            intensity_shift_ = 0.0f;
-        }
-        else if(lidar == VELODYNE_128){ // Velodyne Alpha Prime 128
-            RCLCPP_INFO(get_logger(), "Using Velodyne Alpha Prime parameters");
-            variance_factor_ = 0.35f;
-            normals_factor_ = 0.1f;
-            intensity_factor_ = 50.0f;
-            intensity_shift_ = 0.0f;
-        }
-        else
-            RCLCPP_ERROR(get_logger(), "No parameter set for LiDAR found!");
-    }
-
-    bool getTransform(const std::string& source_frame_id, const std::string& target_frame_id,  
+    bool getTransform(const std::string& source_frame_id, const std::string& target_frame_id,
                       geometry_msgs::msg::TransformStamped& transform_out, const tf2::TimePoint& stamp = tf2::TimePointZero){
         try{
             transform_out = tf_buffer_.lookupTransform(target_frame_id, source_frame_id, stamp);
@@ -478,11 +424,6 @@ class GroundGridNode : public rclcpp::Node {
 
 
     std::string base_frame_;
-
-    float variance_factor_ = 0.35f;
-    float normals_factor_ = 0.01f;
-    float intensity_factor_ = 0.375f;
-    float intensity_shift_ = .075f;
 };
 }
 
@@ -803,25 +744,10 @@ int main(int argc, char * argv[])
   using namespace groundgrid;
   LiDAR lidar = VELODYNE_64;
 
-  // live mode, just run as ros2 node without playing a dataset
-  // base_link -> odom transform has to be available
+  // live mode: just run as a ROS 2 node without playing back a dataset.
+  // base_link -> odom transform has to be available externally.
   if(node->dataset_name == "live"){
       std::cout << "Using ros node live mode" << std::endl;
-      if(node->sensor == "Aeva")
-          lidar = AEVA;
-      else if(node->sensor == "Avia")
-          lidar = AVIA;
-      else if(node->sensor == "Ouster64")
-          lidar = OUSTER_64;
-      else if(node->sensor == "Ouster")
-          lidar = OUSTER_128;
-      else if(node->sensor == "Velodyne")
-          lidar = VELODYNE_64;
-      else{
-          std::cerr << "Could not determine lidar model " << node->sensor<< " -> defaulting to Ouster 128!" << std::endl;
-          lidar = OUSTER_128;
-      }
-      node->setLiDAR(lidar);
       executor->spin();
       rclcpp::shutdown();
       return 0;
@@ -874,7 +800,6 @@ int main(int argc, char * argv[])
       lidar = VELODYNE_128;
   }
 
-  node->setLiDAR(lidar);
   std::string path = ss.str();
   std::vector<geometry_msgs::msg::Pose> poses;
   std::cout << "Selected dataset type: " << node->dataset_name << std::endl;
