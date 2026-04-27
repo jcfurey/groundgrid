@@ -77,9 +77,9 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
     map["variance"].setZero();
     map["minGroundHeight"].setConstant(std::numeric_limits<float>::max());
     map["maxGroundHeight"].setConstant(std::numeric_limits<float>::min());
-    static const grid_map::Matrix& ggv = map["variance"];
-    static grid_map::Matrix& gpl = map["points"];
-    static grid_map::Matrix& ggl = map["ground"];
+    const grid_map::Matrix& ggv = map["variance"];
+    grid_map::Matrix& gpl = map["points"];
+    grid_map::Matrix& ggl = map["ground"];
     const auto& size = map.getSize();
     const size_t threadcount = config_.max_threads;
 
@@ -237,16 +237,16 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
 void GroundSegmentation::insert_cloud(const sensor_msgs::msg::PointCloud2::ConstSharedPtr cloud, const size_t start, const size_t end, const PCLPoint& cloudOrigin, std::vector<std::pair<size_t, grid_map::Index> >& point_index,
                                       std::vector<std::pair<size_t, grid_map::Index> >& ignored, std::vector<size_t>& outliers, grid_map::GridMap &map)
 {
-    static const grid_map::Matrix& ggp = map["groundpatch"];
-    static grid_map::Matrix& gpr = map["pointsRaw"];
-    static grid_map::Matrix& gpl = map["points"];
-    static grid_map::Matrix& ggl = map["ground"];
-    static grid_map::Matrix& gmg = map["groundCandidates"];
-    static grid_map::Matrix& gmm = map["meanVariance"];
-    static grid_map::Matrix& gmx = map["maxGroundHeight"];
-    static grid_map::Matrix& gmi = map["minGroundHeight"];
-    static grid_map::Matrix& gmd = map["planeDist"];
-    static grid_map::Matrix& gm2 = map["m2"];
+    const grid_map::Matrix& ggp = map["groundpatch"];
+    grid_map::Matrix& gpr = map["pointsRaw"];
+    grid_map::Matrix& gpl = map["points"];
+    grid_map::Matrix& ggl = map["ground"];
+    grid_map::Matrix& gmg = map["groundCandidates"];
+    grid_map::Matrix& gmm = map["meanVariance"];
+    grid_map::Matrix& gmx = map["maxGroundHeight"];
+    grid_map::Matrix& gmi = map["minGroundHeight"];
+    grid_map::Matrix& gmd = map["planeDist"];
+    grid_map::Matrix& gm2 = map["m2"];
 
     const auto& size = map.getSize();
 
@@ -361,11 +361,11 @@ void GroundSegmentation::insert_cloud(const sensor_msgs::msg::PointCloud2::Const
 void GroundSegmentation::detect_ground_patches(grid_map::GridMap &map, unsigned short section) const
 {
     const grid_map::Matrix& gcl = map["groundCandidates"];
-    const static auto& size = map.getSize();
-    const static float resolution = map.getResolution();
-    static const grid_map::Matrix& gm2 = map["m2"];
-    static const grid_map::Matrix& gpl = map["points"];
-    static grid_map::Matrix& ggv = map["variance"];
+    const auto& size = map.getSize();
+    const float resolution = map.getResolution();
+    const grid_map::Matrix& gm2 = map["m2"];
+    const grid_map::Matrix& gpl = map["points"];
+    grid_map::Matrix& ggv = map["variance"];
     // calculate variance
     ggv = gm2.array().cwiseQuotient(gpl.array()+std::numeric_limits<float>::min());
 
@@ -388,13 +388,13 @@ void GroundSegmentation::detect_ground_patches(grid_map::GridMap &map, unsigned 
 
 template <int S> void GroundSegmentation::detect_ground_patch(grid_map::GridMap& map, size_t i, size_t j) const
 {
-    static grid_map::Matrix& ggl = map["ground"];
-    static grid_map::Matrix& ggp = map["groundpatch"];
-    static grid_map::Matrix& ggv = map["variance"];
-    static const grid_map::Matrix& gmi = map["minGroundHeight"];
-    static const grid_map::Matrix& gpl = map["points"];
-    static const auto& size = map.getSize();
-    static const float resolution = map.getResolution();
+    grid_map::Matrix& ggl = map["ground"];
+    grid_map::Matrix& ggp = map["groundpatch"];
+    const grid_map::Matrix& ggv = map["variance"];
+    const grid_map::Matrix& gmi = map["minGroundHeight"];
+    const grid_map::Matrix& gpl = map["points"];
+    const auto& size = map.getSize();
+    const float resolution = map.getResolution();
     const int center_idx = std::floor(S/2);
 
 
@@ -443,8 +443,8 @@ template <int S> void GroundSegmentation::detect_ground_patch(grid_map::GridMap&
 
 void GroundSegmentation::spiral_ground_interpolation(grid_map::GridMap &map, const geometry_msgs::msg::TransformStamped &toBase) const
 {
-    static grid_map::Matrix& ggl = map["ground"];
-    static grid_map::Matrix& gvl = map["groundpatch"];
+    grid_map::Matrix& ggl = map["ground"];
+    grid_map::Matrix& gvl = map["groundpatch"];
     const auto& map_size = map.getSize();
     const auto& center_idx = map_size(0)/2-1;
 
@@ -489,12 +489,12 @@ void GroundSegmentation::spiral_ground_interpolation(grid_map::GridMap &map, con
 
 void GroundSegmentation::interpolate_cell(grid_map::GridMap &map, const size_t x, const size_t y) const
 {
-    static const auto& center_idx = map.getSize()(0)/2-1;
-    static const size_t blocksize = 3;
+    const auto center_idx = map.getSize()(0)/2-1;
+    constexpr size_t blocksize = 3;
     // "groundpatch" layer contains confidence values
-    static grid_map::Matrix& gvl = map["groundpatch"];
+    grid_map::Matrix& gvl = map["groundpatch"];
     // "ground" contains the ground height values
-    static grid_map::Matrix& ggl = map["ground"];
+    grid_map::Matrix& ggl = map["ground"];
     const auto& gvlblock = gvl.block<blocksize,blocksize>(x-blocksize/2,y-blocksize/2);
 
     float& height = ggl(x,y);
