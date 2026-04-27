@@ -105,7 +105,10 @@ class GroundGridNode : public rclcpp::Node {
         tf_buffer_(get_clock()),
         tf_listener_(tf_buffer_){ 
         
-        grid_map_pub_ = create_publisher<grid_map_msgs::msg::GridMap>("/groundgrid/grid_map", rclcpp::SensorDataQoS());
+        // RELIABLE pub: rmw_zenoh_cpp does not match a RELIABLE publisher with a
+        // BEST_EFFORT subscriber, and the GridMap is a large message anyway —
+        // KeepLast(1) drops stale frames if a subscriber falls behind.
+        grid_map_pub_ = create_publisher<grid_map_msgs::msg::GridMap>("/groundgrid/grid_map", rclcpp::QoS(rclcpp::KeepLast(1)).reliable());
         filtered_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("/groundgrid/filtered_cloud", rclcpp::ServicesQoS());
 
         groundgrid_ = std::make_shared<GroundGrid>(get_clock());
@@ -201,8 +204,10 @@ class GroundGridNode : public rclcpp::Node {
 
         tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
-        // odometry in
-        pos_sub_ = create_subscription<nav_msgs::msg::Odometry>("/groundgrid/odometry_in", rclcpp::SensorDataQoS(), std::bind(&groundgrid::GroundGridNode::odom_callback, this, std::placeholders::_1));
+        // odometry in — RELIABLE so we match upstream odometry publishers
+        // (Sierra / robot_localization EKF / RESPLE) under rmw_zenoh_cpp,
+        // which silently drops a BEST_EFFORT sub against a RELIABLE pub.
+        pos_sub_ = create_subscription<nav_msgs::msg::Odometry>("/groundgrid/odometry_in", rclcpp::QoS(rclcpp::KeepLast(10)).reliable(), std::bind(&groundgrid::GroundGridNode::odom_callback, this, std::placeholders::_1));
         sync_sub_ = create_subscription<std_msgs::msg::Empty>("/groundgrid/next_cloud", rclcpp::ServicesQoS(), std::bind(&groundgrid::GroundGridNode::next_cloud_trigger, this, std::placeholders::_1));
         
         // input point cloud
