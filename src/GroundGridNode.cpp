@@ -37,8 +37,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pcl_conversions/pcl_conversions.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <velodyne_pointcloud/point_types.h>
-#include <pcl/io/pcd_io.h> // point cloud reading/writing
-#include <pcl_conversions/pcl_conversions.h> // convert from/to ros
+#include <pcl/io/pcd_io.h>
 
 
 // ros opencv transport
@@ -53,9 +52,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <tf2/time.h>
 #include <sstream>
 #include <tf2/LinearMath/Quaternion.hpp>
-#include <tf2/convert.h>
 #include <rclcpp/qos.hpp>
-#include <tf2/LinearMath/Quaternion.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.hpp>
 
@@ -210,8 +207,6 @@ class GroundGridNode : public rclcpp::Node {
         
         // input point cloud
         points_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>("/pointcloud", rclcpp::SystemDefaultsQoS(), std::bind(&groundgrid::GroundGridNode::points_callback, this, std::placeholders::_1));
-
-        groundgrid_->onInit();
    }
    
 
@@ -396,11 +391,7 @@ class GroundGridNode : public rclcpp::Node {
             filtered_cloud_pub_->publish(*cloud_msg_out);
         }
 
-        // ros2 removed the header sequence field, so we have to count manually.
-        static size_t seq = 0;
-        ++seq;
-
-        if(grid_map_pub_->get_subscription_count()){    
+        if(grid_map_pub_->get_subscription_count()){
             grid_map_msgs::msg::GridMap::UniquePtr grid_map_msg = grid_map::GridMapRosConverter::toMessage(*map_ptr_);
             grid_map_msg->header.stamp = cloud_msg->header.stamp;
             grid_map_pub_->publish(std::move(grid_map_msg));
@@ -412,7 +403,7 @@ class GroundGridNode : public rclcpp::Node {
             if(layer_pubs_.find(layer) == layer_pubs_.end()){
                 layer_pubs_[layer] = it.advertise("/groundgrid/grid_map_cv_"+layer, 10);
             }
-            publish_grid_map_layer(layer_pubs_.at(layer), layer, seq, cloud_msg->header.stamp);
+            publish_grid_map_layer(layer_pubs_.at(layer), layer, cloud_msg->header.stamp);
         }
 
         static size_t send_imgs = 0;
@@ -447,7 +438,7 @@ class GroundGridNode : public rclcpp::Node {
 
     
    protected:
-    void publish_grid_map_layer(const image_transport::Publisher& pub, const std::string& layer_name, const int /*seq*/ = 0, const rclcpp::Time& stamp = rclcpp::Clock(RCL_ROS_TIME).now()){
+    void publish_grid_map_layer(const image_transport::Publisher& pub, const std::string& layer_name, const rclcpp::Time& stamp = rclcpp::Clock(RCL_ROS_TIME).now()){
         cv::Mat img, normalized_img, color_img, mask;
         if(pub.getNumSubscribers()){
             auto& map = *map_ptr_;

@@ -54,10 +54,6 @@ GroundGrid::GroundGrid(rclcpp::Clock::SharedPtr clock) : mTfBuffer(clock), mTf2_
 GroundGrid::~GroundGrid() {
 }
 
-void GroundGrid::onInit()
-{
-}
-
 
 void GroundGrid::init(const nav_msgs::msg::Odometry::ConstSharedPtr &inOdom)
 {

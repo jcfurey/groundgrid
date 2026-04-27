@@ -62,7 +62,6 @@ class GroundGrid {
      */
     virtual ~GroundGrid();
 
-    void onInit();
     void init(const nav_msgs::msg::Odometry::ConstSharedPtr &inOdom);
     std::shared_ptr<grid_map::GridMap> update(const nav_msgs::msg::Odometry::ConstSharedPtr& inOdom);
 
