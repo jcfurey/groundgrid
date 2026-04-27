@@ -56,7 +56,7 @@ class GroundGrid {
 
     /** Constructor.
      */
-    GroundGrid(rclcpp::Clock::SharedPtr clock);
+    GroundGrid(rclcpp::Clock::SharedPtr clock, const std::string& odom_frame = "odom");
 
     /** Destructor.
      */
@@ -67,6 +67,7 @@ class GroundGrid {
 
     const float mResolution = .33f;
     const float mDimension = 120.0f;
+    const std::string odom_frame_;
 
    private:
     // tf

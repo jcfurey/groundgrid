@@ -111,7 +111,11 @@ class GroundGridNode : public rclcpp::Node {
         grid_map_pub_ = create_publisher<grid_map_msgs::msg::GridMap>("/groundgrid/grid_map", rclcpp::QoS(rclcpp::KeepLast(1)).reliable());
         filtered_cloud_pub_ = create_publisher<sensor_msgs::msg::PointCloud2>("/groundgrid/filtered_cloud", rclcpp::ServicesQoS());
 
-        groundgrid_ = std::make_shared<GroundGrid>(get_clock());
+        // odom_frame_ is declared early so it can flow into GroundGrid's
+        // constructor below — every subsequent TF lookup uses this name.
+        odom_frame_ = declare_parameter<std::string>("groundgrid/odom_frame", "odom");
+
+        groundgrid_ = std::make_shared<GroundGrid>(get_clock(), odom_frame_);
 
         // retrieve dataset parameters for evaluation
         auto param_dataset_name = rcl_interfaces::msg::ParameterDescriptor{};
@@ -222,9 +226,9 @@ class GroundGridNode : public rclcpp::Node {
 
     virtual void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr& inOdom){
         auto start = std::chrono::steady_clock::now();
-        if(inOdom->header.frame_id != "odom"){
+        if(inOdom->header.frame_id != odom_frame_){
             geometry_msgs::msg::TransformStamped transform;
-            getTransform(inOdom->header.frame_id, "odom", transform);
+            getTransform(inOdom->header.frame_id, odom_frame_, transform);
             geometry_msgs::msg::PoseStamped ps;
             tf2::doTransform(inOdom->pose.pose, ps.pose, transform);
             nav_msgs::msg::Odometry odom = *inOdom;
@@ -277,10 +281,10 @@ class GroundGridNode : public rclcpp::Node {
         // we drop the scan and wait for the next one.
         geometry_msgs::msg::TransformStamped mapToBaseTransform, cloudOriginTransform, revtransformStamped;
         try{
-            mapToBaseTransform   = tf_buffer_.lookupTransform("odom", base_frame_, cloud_msg->header.stamp);
-            cloudOriginTransform = tf_buffer_.lookupTransform("odom", cloud_msg->header.frame_id, cloud_msg->header.stamp);
-            if(cloud_msg->header.frame_id != "odom"){
-                revtransformStamped = tf_buffer_.lookupTransform(cloud_msg->header.frame_id, "odom", cloud_msg->header.stamp);
+            mapToBaseTransform   = tf_buffer_.lookupTransform(odom_frame_, base_frame_, cloud_msg->header.stamp);
+            cloudOriginTransform = tf_buffer_.lookupTransform(odom_frame_, cloud_msg->header.frame_id, cloud_msg->header.stamp);
+            if(cloud_msg->header.frame_id != odom_frame_){
+                revtransformStamped = tf_buffer_.lookupTransform(cloud_msg->header.frame_id, odom_frame_, cloud_msg->header.stamp);
             }
         }
         catch (tf2::TransformException &ex) {
@@ -295,12 +299,12 @@ class GroundGridNode : public rclcpp::Node {
         origin.point.z = 0.0f;
         sensor_msgs::msg::PointCloud2::SharedPtr cloud_transformed = sensor_msgs::msg::PointCloud2::SharedPtr(new sensor_msgs::msg::PointCloud2());
         cloud_transformed->header = cloud_msg->header;
-        cloud_transformed->header.frame_id = "odom";
+        cloud_transformed->header.frame_id = odom_frame_;
 
         tf2::doTransform(origin, origin, cloudOriginTransform);
 
         // Transform cloud into map coordinate system
-        if(cloud_msg->header.frame_id != "odom"){
+        if(cloud_msg->header.frame_id != odom_frame_){
             tf2::doTransform(*cloud_msg, *cloud_transformed, cloudOriginTransform);
         }
 
@@ -422,6 +426,7 @@ class GroundGridNode : public rclcpp::Node {
 
 
     std::string base_frame_;
+    std::string odom_frame_;
 };
 }
 

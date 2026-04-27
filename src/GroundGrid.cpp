@@ -48,7 +48,8 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace groundgrid;
 
-GroundGrid::GroundGrid(rclcpp::Clock::SharedPtr clock) : mTfBuffer(clock), mTf2_listener(mTfBuffer)
+GroundGrid::GroundGrid(rclcpp::Clock::SharedPtr clock, const std::string& odom_frame)
+    : odom_frame_(odom_frame), mTfBuffer(clock), mTf2_listener(mTfBuffer)
 {}
 
 GroundGrid::~GroundGrid() {
@@ -66,7 +67,7 @@ void GroundGrid::init(const nav_msgs::msg::Odometry::ConstSharedPtr &inOdom)
         {"points", "ground", "groundpatch", "minGroundHeight", "maxGroundHeight",
          "groundCandidates", "planeDist", "m2", "meanVariance", "pointsRaw", "variance"});
     grid_map::GridMap& map = *mMap_ptr;
-    map.setFrameId("odom");
+    map.setFrameId(odom_frame_);
     map.setGeometry(grid_map::Length(mDimension, mDimension), mResolution, grid_map::Position(inOdom->pose.pose.position.x,inOdom->pose.pose.position.y));
     RCLCPP_INFO(mLogger, "Created map with size %f x %f m (%i x %i cells).",
              map.getLength().x(), map.getLength().y(),
@@ -109,7 +110,7 @@ std::shared_ptr<grid_map::GridMap> GroundGrid::update(const nav_msgs::msg::Odome
 
     geometry_msgs::msg::PointStamped ps;
     ps.header = inOdom->header;
-    ps.header.frame_id = "odom";
+    ps.header.frame_id = odom_frame_;
     grid_map::Position pos;
 
     for(auto region : damage){
