@@ -103,8 +103,11 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
     std::vector<std::thread> threads;
 
     for(size_t i=0; i<threadcount; ++i){
-        const size_t chunk_start = std::floor((i*cloud->width)/threadcount);
-        const size_t chunk_end = std::ceil(((i+1)*cloud->width)/threadcount);
+        // Use floor for both bounds so chunk_end[i] == chunk_start[i+1] exactly.
+        // The previous floor/ceil pair could overlap by 1 point on non-divisible
+        // widths, double-counting one point per boundary under concurrent threads.
+        const size_t chunk_start = (i * cloud->width) / threadcount;
+        const size_t chunk_end   = ((i+1) * cloud->width) / threadcount;
         threads.push_back(std::thread(&GroundSegmentation::insert_cloud, this, cloud, chunk_start, chunk_end, std::cref(cloudOrigin), std::ref(point_index_list[i]), std::ref(ignored_list[i]),
                                       std::ref(outliers_list[i]), std::ref(map)));
     }
