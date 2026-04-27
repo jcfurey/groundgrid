@@ -260,50 +260,43 @@ class GroundGridNode : public rclcpp::Node {
         static double avg_cpu_time = 0.0;
         static size_t cloud_count = 0;
         ++cloud_count;
-        geometry_msgs::msg::TransformStamped mapToBaseTransform, cloudOriginTransform;
-
         // Map not initialized yet, this means the node hasn't received any odom message so far.
         if(!map_ptr_)
             return;
 
+        // Look up the transforms we need without blocking the callback. The
+        // previous code used canTransform() with a 1.1 s timeout, which on a
+        // single-threaded executor stalls the lidar pipeline whenever TF is
+        // briefly stale (and deadlocks under paused sim_time). lookupTransform
+        // throws immediately if the data isn't there, which is what we want —
+        // we drop the scan and wait for the next one.
+        geometry_msgs::msg::TransformStamped mapToBaseTransform, cloudOriginTransform, revtransformStamped;
         try{
-            tf_buffer_.canTransform(base_frame_, "odom", cloud_msg->header.stamp, rclcpp::Duration(1,std::nano::den/10));
-            mapToBaseTransform = tf_buffer_.lookupTransform("odom", base_frame_, cloud_msg->header.stamp);
-            tf_buffer_.canTransform(cloud_msg->header.frame_id, "odom", cloud_msg->header.stamp, rclcpp::Duration(0,std::nano::den/10));
+            mapToBaseTransform   = tf_buffer_.lookupTransform("odom", base_frame_, cloud_msg->header.stamp);
             cloudOriginTransform = tf_buffer_.lookupTransform("odom", cloud_msg->header.frame_id, cloud_msg->header.stamp);
+            if(cloud_msg->header.frame_id != "odom"){
+                revtransformStamped = tf_buffer_.lookupTransform(cloud_msg->header.frame_id, "odom", cloud_msg->header.stamp);
+            }
         }
         catch (tf2::TransformException &ex) {
-            RCLCPP_WARN(get_logger(), "Could not get transform for cloud \"%s\" %s", cloud_msg->header.frame_id.c_str(), ex.what());
+            RCLCPP_WARN(get_logger(), "Could not get transform for cloud \"%s\": %s", cloud_msg->header.frame_id.c_str(), ex.what());
             return;
         }
-
 
         geometry_msgs::msg::PointStamped origin;
         origin.header = cloud_msg->header;
         origin.point.x = 0.0f;
         origin.point.y = 0.0f;
-        origin.point.z = 0.0f;        
+        origin.point.z = 0.0f;
         sensor_msgs::msg::PointCloud2::SharedPtr cloud_transformed = sensor_msgs::msg::PointCloud2::SharedPtr(new sensor_msgs::msg::PointCloud2());
         cloud_transformed->header = cloud_msg->header;
         cloud_transformed->header.frame_id = "odom";
 
         tf2::doTransform(origin, origin, cloudOriginTransform);
 
-        geometry_msgs::msg::TransformStamped revtransformStamped;
         // Transform cloud into map coordinate system
         if(cloud_msg->header.frame_id != "odom"){
-            // Transform to map
-            geometry_msgs::msg::TransformStamped transformStamped;
-
-            try{
-                transformStamped = tf_buffer_.lookupTransform("odom", cloud_msg->header.frame_id, cloud_msg->header.stamp, rclcpp::Duration(0,std::nano::den/10));
-                revtransformStamped = tf_buffer_.lookupTransform(cloud_msg->header.frame_id, "odom", cloud_msg->header.stamp, rclcpp::Duration(0,std::nano::den/10));
-            }
-            catch (tf2::TransformException &ex) {
-                RCLCPP_WARN(get_logger(), "Failed to get map transform for point cloud transformation: %s",ex.what());
-                return;
-            }
-            tf2::doTransform(*cloud_msg, *cloud_transformed, transformStamped);
+            tf2::doTransform(*cloud_msg, *cloud_transformed, cloudOriginTransform);
         }
 
         auto end = std::chrono::steady_clock::now();
