@@ -1,17 +1,13 @@
 cmake_minimum_required(VERSION 3.22)
 project(groundgrid)
 
-######################################
-## Find catkin macros and libraries ##
-######################################
-
-set (CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
 
-find_package(rclpy REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(pcl_ros REQUIRED)
@@ -42,19 +38,7 @@ find_package(OpenCV REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common)
 find_package(Eigen3 REQUIRED)
 
-# Compiler flags
-# Do not warn for unused returned values
-add_compile_options(-Wno-unused-result)
-
-###########
-## Build ##
-###########
-
-## Specify additional locations of header files
-## Your package locations should be listed before other locations
-
 set(DEPS
-  rclpy
   rclcpp
   rclcpp_components
   geometry_msgs
