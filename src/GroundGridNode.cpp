@@ -215,7 +215,12 @@ class GroundGridNode : public rclcpp::Node {
         sync_sub_ = create_subscription<std_msgs::msg::Empty>("/groundgrid/next_cloud", rclcpp::ServicesQoS(), std::bind(&groundgrid::GroundGridNode::next_cloud_trigger, this, std::placeholders::_1));
         
         // input point cloud
-        points_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>("/pointcloud", rclcpp::SystemDefaultsQoS(), std::bind(&groundgrid::GroundGridNode::points_callback, this, std::placeholders::_1));
+        // BEST_EFFORT sub: lidar drivers (Ouster os_cloud_node, Velodyne) publish
+        // PointCloud2 with rclcpp::SensorDataQoS() = BEST_EFFORT. Under rmw_zenoh_cpp
+        // a BEST_EFFORT publisher does not match a RELIABLE subscriber, so a default
+        // (RELIABLE) sub here silently never receives any cloud and the costmap's
+        // observation buffer goes blank. Match the upstream profile.
+        points_sub_ = create_subscription<sensor_msgs::msg::PointCloud2>("/pointcloud", rclcpp::SensorDataQoS(), std::bind(&groundgrid::GroundGridNode::points_callback, this, std::placeholders::_1));
    }
    
 
