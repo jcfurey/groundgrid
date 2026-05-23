@@ -9,6 +9,11 @@ if (NOT CMAKE_BUILD_TYPE)
 endif ()
 
 find_package(ament_cmake_auto REQUIRED)
+# VTK 9.5 (bundled with PCL 1.15, transitively via pcl_conversions etc.)
+# re-exports JsonCpp::JsonCpp / MPI::MPI_C without pulling their finders
+# itself. Bring them in before ament_auto walks the dep tree.
+find_package(jsoncpp REQUIRED)
+find_package(MPI REQUIRED COMPONENTS C)
 ament_auto_find_build_dependencies()
 
 # Non-ROS deps not picked up by ament_auto_find_build_dependencies()
