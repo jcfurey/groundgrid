@@ -47,9 +47,15 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // ros tf
 #include <tf2_ros/transform_listener.h>
+#if __has_include(<tf2/convert.hpp>)
+#include <tf2/convert.hpp>
+#include <tf2/exceptions.hpp>
+#include <tf2/time.hpp>
+#else
 #include <tf2/convert.h>
 #include <tf2/exceptions.h>
 #include <tf2/time.h>
+#endif
 #include <sstream>
 #include <tf2/LinearMath/Quaternion.hpp>
 #include <rclcpp/qos.hpp>

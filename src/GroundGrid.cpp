@@ -43,8 +43,13 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <opencv2/highgui.hpp>
 
 // Tf
+#if __has_include(<tf2/LinearMath/Matrix3x3.hpp>)
+#include <tf2/LinearMath/Matrix3x3.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
+#else
 #include <tf2/LinearMath/Matrix3x3.h>
 #include <tf2/LinearMath/Quaternion.h>
+#endif
 
 using namespace groundgrid;
 
