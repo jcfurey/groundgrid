@@ -23,15 +23,18 @@
     <build_depend>sensor_msgs</build_depend>
 
     <!-- grid_map stuff -->
-    <depend>grid_map</depend>
     <depend>grid_map_core</depend>
     <depend>grid_map_ros</depend>
     <depend>grid_map_cv</depend>
-    <depend>grid_map_loader</depend>
     <depend>grid_map_filters</depend>
     <depend>grid_map_msgs</depend>
-    <depend>grid_map_rviz_plugin</depend>
-    <depend>grid_map_visualization</depend>
+    <!-- runtime-only grid_map tools: grid_map_loader's Jazzy binary package
+         exports a library that does not exist, which breaks find_package via
+         ament_auto, so these must not be build dependencies -->
+    <exec_depend>grid_map</exec_depend>
+    <exec_depend>grid_map_loader</exec_depend>
+    <exec_depend>grid_map_rviz_plugin</exec_depend>
+    <exec_depend>grid_map_visualization</exec_depend>
 
     <depend>cv_bridge</depend>
     <depend>image_transport</depend>
