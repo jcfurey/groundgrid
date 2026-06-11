@@ -36,11 +36,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 
-// tf
-#include <tf2_ros/buffer.h>
-#include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/msg/point_stamped.hpp>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
 
 namespace groundgrid {
@@ -56,7 +52,7 @@ class GroundGrid {
 
     /** Constructor.
      */
-    GroundGrid(rclcpp::Clock::SharedPtr clock, const std::string& odom_frame = "odom");
+    explicit GroundGrid(const std::string& odom_frame = "odom");
 
     /** Destructor.
      */
@@ -70,13 +66,9 @@ class GroundGrid {
     const std::string odom_frame_;
 
    private:
-    // tf
-    tf2_ros::Buffer mTfBuffer;
-    tf2_ros::TransformListener mTf2_listener;
     const rclcpp::Logger  mLogger = rclcpp::get_logger("GroundGrid");
 
     std::shared_ptr<grid_map::GridMap> mMap_ptr;
-    geometry_msgs::msg::TransformStamped mTfPosition, mTfUtm, mTfMap;
     geometry_msgs::msg::PoseWithCovarianceStamped mLastPose;
 };
 }

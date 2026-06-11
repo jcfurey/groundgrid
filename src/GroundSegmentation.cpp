@@ -101,7 +101,9 @@ sensor_msgs::msg::PointCloud2::SharedPtr GroundSegmentation::filter_cloud(const 
     map["points"].setZero();
     map["variance"].setZero();
     map["minGroundHeight"].setConstant(std::numeric_limits<float>::max());
-    map["maxGroundHeight"].setConstant(std::numeric_limits<float>::min());
+    // lowest(), not min(): min() is the smallest *positive* float, which broke
+    // max-tracking for cells whose points all lie below z=0
+    map["maxGroundHeight"].setConstant(std::numeric_limits<float>::lowest());
     const grid_map::Matrix& ggv = map["variance"];
     grid_map::Matrix& gpl = map["points"];
     grid_map::Matrix& ggl = map["ground"];
