@@ -53,8 +53,10 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 using namespace groundgrid;
 
-GroundGrid::GroundGrid(rclcpp::Clock::SharedPtr clock, const std::string& odom_frame)
-    : odom_frame_(odom_frame), mTfBuffer(clock), mTf2_listener(mTfBuffer)
+// GroundGrid no longer performs TF lookups itself; keeping a private
+// tf2_ros::TransformListener here cost a second /tf subscription per node.
+GroundGrid::GroundGrid(const std::string& odom_frame)
+    : odom_frame_(odom_frame)
 {}
 
 GroundGrid::~GroundGrid() {
@@ -63,7 +65,7 @@ GroundGrid::~GroundGrid() {
 
 void GroundGrid::init(const nav_msgs::msg::Odometry::ConstSharedPtr &inOdom)
 {
-    geometry_msgs::msg::PoseWithCovarianceStamped odomPose, utmPose;
+    geometry_msgs::msg::PoseWithCovarianceStamped odomPose;
 
     // Allocate every layer GroundSegmentation will touch up front so the per-cloud
     // hot path can just setZero/setConstant existing matrices instead of paying the
@@ -104,19 +106,10 @@ std::shared_ptr<grid_map::GridMap> GroundGrid::update(const nav_msgs::msg::Odome
     }
 
     auto start = std::chrono::steady_clock::now();
-    geometry_msgs::msg::PoseWithCovarianceStamped odomPose, utmPose;
     grid_map::GridMap& map = *mMap_ptr;
 
-    geometry_msgs::msg::PoseWithCovarianceStamped poseDiff;
-    poseDiff.pose.pose.position.x = inOdom->pose.pose.position.x - mLastPose.pose.pose.position.x;
-    poseDiff.pose.pose.position.y = inOdom->pose.pose.position.y - mLastPose.pose.pose.position.y;
     std::vector<grid_map::BufferRegion> damage;
     map.move(grid_map::Position(inOdom->pose.pose.position.x, inOdom->pose.pose.position.y), damage);
-
-    geometry_msgs::msg::PointStamped ps;
-    ps.header = inOdom->header;
-    ps.header.frame_id = odom_frame_;
-    grid_map::Position pos;
 
     for(auto region : damage){
         for(auto it = grid_map::SubmapIterator(map, region); !it.isPastEnd(); ++it){

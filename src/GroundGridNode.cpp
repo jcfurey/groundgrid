@@ -46,6 +46,7 @@ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <cv_bridge/cv_bridge.hpp>
 
 // ros tf
+#include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 #if __has_include(<tf2/convert.hpp>)
 #include <tf2/convert.hpp>
@@ -121,7 +122,7 @@ class GroundGridNode : public rclcpp::Node {
         // constructor below — every subsequent TF lookup uses this name.
         odom_frame_ = declare_parameter<std::string>("groundgrid/odom_frame", "odom");
 
-        groundgrid_ = std::make_shared<GroundGrid>(get_clock(), odom_frame_);
+        groundgrid_ = std::make_shared<GroundGrid>(odom_frame_);
 
         // retrieve dataset parameters for evaluation
         auto param_dataset_name = rcl_interfaces::msg::ParameterDescriptor{};
@@ -239,7 +240,11 @@ class GroundGridNode : public rclcpp::Node {
         auto start = std::chrono::steady_clock::now();
         if(inOdom->header.frame_id != odom_frame_){
             geometry_msgs::msg::TransformStamped transform;
-            getTransform(inOdom->header.frame_id, odom_frame_, transform);
+            if(!getTransform(inOdom->header.frame_id, odom_frame_, transform)){
+                RCLCPP_WARN(get_logger(), "Dropping odometry in frame \"%s\": transform to \"%s\" unavailable",
+                            inOdom->header.frame_id.c_str(), odom_frame_.c_str());
+                return;
+            }
             geometry_msgs::msg::PoseStamped ps;
             tf2::doTransform(inOdom->pose.pose, ps.pose, transform);
             nav_msgs::msg::Odometry odom = *inOdom;
@@ -318,6 +323,11 @@ class GroundGridNode : public rclcpp::Node {
         if(cloud_msg->header.frame_id != odom_frame_){
             tf2::doTransform(*cloud_msg, *cloud_transformed, cloudOriginTransform);
         }
+        else{
+            // already in the odom frame — without this copy the segmentation
+            // would run on an empty cloud
+            *cloud_transformed = *cloud_msg;
+        }
 
         auto end = std::chrono::steady_clock::now();
         RCLCPP_DEBUG_STREAM(get_logger(), "cloud transformation took " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() << "ms");
@@ -345,8 +355,10 @@ class GroundGridNode : public rclcpp::Node {
         cloud_msg_out->header = cloud_msg->header;
         if(filtered_cloud_pub_->get_subscription_count())
         {
-            //put cloud back to sensor frame
-            tf2::doTransform(*cloud_msg_out, *cloud_msg_out, revtransformStamped);
+            //put cloud back to sensor frame; revtransformStamped is only valid
+            //(and only needed) when the cloud did not arrive in the odom frame
+            if(cloud_msg->header.frame_id != odom_frame_)
+                tf2::doTransform(*cloud_msg_out, *cloud_msg_out, revtransformStamped);
             filtered_cloud_pub_->publish(*cloud_msg_out);
         }
 
@@ -356,11 +368,14 @@ class GroundGridNode : public rclcpp::Node {
             grid_map_pub_->publish(std::move(grid_map_msg));
         }
 
-        image_transport::ImageTransport it(shared_from_this());
+        // ImageTransport is comparatively expensive to construct — keep one
+        // instance instead of recreating it for every cloud
+        if(!image_transport_)
+            image_transport_ = std::make_shared<image_transport::ImageTransport>(shared_from_this());
 
         for(const auto& layer : map_ptr_->getLayers()){
             if(layer_pubs_.find(layer) == layer_pubs_.end()){
-                layer_pubs_[layer] = it.advertise("/groundgrid/grid_map_cv_"+layer, 10);
+                layer_pubs_[layer] = image_transport_->advertise("/groundgrid/grid_map_cv_"+layer, 10);
             }
             publish_grid_map_layer(layer_pubs_.at(layer), layer, cloud_msg->header.stamp);
         }
@@ -421,6 +436,7 @@ class GroundGridNode : public rclcpp::Node {
     rclcpp::Publisher<grid_map_msgs::msg::GridMap>::SharedPtr grid_map_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr filtered_cloud_pub_;
     std::unordered_map<std::string, image_transport::Publisher> layer_pubs_;
+    std::shared_ptr<image_transport::ImageTransport> image_transport_;
 
     /// pointer to the functionality class
     std::shared_ptr<GroundGrid> groundgrid_;
@@ -584,9 +600,14 @@ sensor_msgs::msg::PointCloud2::SharedPtr readNextCloud(const groundgrid::DATASET
         		input.read((char *) point.data()+ring.offset, sizeof(uint16_t));
             input.ignore(sizeof(float)); // skip time
         }
+        // a failed read above means we hit EOF mid-point: drop the partial
+        // point instead of appending a garbage point at the origin (which
+        // would also index labels[] out of bounds)
+        if(!input.good())
+            break;
     		// replace ring field with labels
         if(dataset == KITTI)
-            *reinterpret_cast<unsigned short*>(point.data() + ring.offset) = labels[cloud->width];
+            *reinterpret_cast<unsigned short*>(point.data() + ring.offset) = cloud->width < labels.size() ? labels[cloud->width] : 0;
     		cloud->data.insert(cloud->data.end(), point.begin(), point.end());
     		cloud->width++;
     }
@@ -737,7 +758,7 @@ std::vector<geometry_msgs::msg::Pose> matchCloudPoses(const std::vector<std::str
             ++pose_idx;
         size_t diff_to_next = std::stol(poses_stamps[pose_idx]) - stamp_long;
 
-        if(diff_to_next < diff_to_last){
+        if(diff_to_next < diff_to_last || result.empty()){
             result.push_back(poses[pose_idx]);
             last_stamp = std::stol(poses_stamps[pose_idx]);
         }
@@ -875,6 +896,11 @@ int main(int argc, char * argv[])
 
   static float avg_frequency = 0;
   static float avg_time = 0;
+  // Use the configured frame names: the node's points_callback looks up
+  // odom_frame -> base_frame, so publishing a hardcoded "base_link" child
+  // breaks playback whenever base_frame differs (default: base_footprint).
+  const std::string odom_frame = node->get_parameter("groundgrid/odom_frame").as_string();
+  const std::string base_frame = node->get_parameter("groundgrid/base_frame").as_string();
   for(size_t i=0; i<poses.size(); ++i){
       auto start = std::chrono::steady_clock::now();
       executor->spin_some();
@@ -884,17 +910,17 @@ int main(int argc, char * argv[])
       nav_msgs::msg::Odometry odom;
       static nav_msgs::msg::Odometry lastOdom;
       odom.header.stamp = current_time;
-      odom.header.frame_id = "odom";
+      odom.header.frame_id = odom_frame;
       odom.pose.pose = poses[i];
       lastOdom = odom;
       geometry_msgs::msg::TransformStamped t, t_map_odom;
       t_map_odom.header.stamp = current_time;
       t_map_odom.header.frame_id = "map";
-      t_map_odom.child_frame_id = "odom";
+      t_map_odom.child_frame_id = odom_frame;
       t_map_odom.transform.rotation.w = 1.0;
       t.header.stamp = current_time;
-      t.header.frame_id = "odom";
-      t.child_frame_id = "base_link";
+      t.header.frame_id = odom_frame;
+      t.child_frame_id = base_frame;
       t.transform.translation.x = odom.pose.pose.position.x;
       t.transform.translation.y = odom.pose.pose.position.y;
       t.transform.translation.z = odom.pose.pose.position.z;

@@ -1,5 +1,7 @@
 groundgrid_node:
   ros__parameters:
+    # dataset playback publishes odom -> base_frame using this name
+    groundgrid/base_frame: "base_link"
     groundgrid/point_count_cell_variance_thres: 10
     groundgrid/max_ring: 1024
     groundgrid/groundpatch_detection_minimum_thres: 0.01
